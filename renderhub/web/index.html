@@ -1,0 +1,658 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RenderHub</title>
+<style>
+  :root { --line: #dde1e6; --bg: #f4f6f8; --card: #fff; --text: #1b1f24; --muted: #5f6b7a; --accent: #2563eb;
+          --ok: #157f3b; --okbg: #dcf5e4; --warn: #8a5a00; --warnbg: #fff1c7; --bad: #b42318; --badbg: #fde2df; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text); background: var(--bg); }
+  header { background: #111827; color: #fff; padding: 10px 16px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+  header h1 { font-size: 17px; margin: 0; font-weight: 650; }
+  header .sub { color: #aab4c3; font-size: 12px; }
+  nav { display: flex; gap: 2px; background: #fff; border-bottom: 1px solid var(--line); padding: 0 12px; overflow-x: auto; position: sticky; top: 0; z-index: 5; }
+  nav button { border: 0; background: none; padding: 11px 14px; font: inherit; font-weight: 600; color: var(--muted); cursor: pointer;
+               border-bottom: 3px solid transparent; white-space: nowrap; }
+  nav button.on { color: var(--accent); border-bottom-color: var(--accent); }
+  nav .count { display: inline-block; min-width: 18px; padding: 0 5px; margin-left: 5px; border-radius: 9px; background: #e5e7eb; color: #374151; font-size: 11px; text-align: center; }
+  nav .count.live { background: var(--accent); color: #fff; }
+  main { max-width: 1200px; margin: 0 auto; padding: 16px; }
+  section.tab { display: none; } section.tab.on { display: block; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin-bottom: 14px; overflow-x: auto; }
+  .card h2 { font-size: 15px; margin: 0 0 10px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .spacer { flex: 1; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: #f8fafc; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); font-weight: 600; }
+  tbody tr:hover { background: #f8fafc; }
+  tr.click { cursor: pointer; }
+  tr.sel { background: #eef4ff !important; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.k { width: 190px; color: var(--muted); font-weight: 600; }
+  .scroll { overflow-x: auto; }
+  .muted { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+  .pill { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 12px; font-weight: 650; white-space: nowrap; }
+  .p-ready, .p-done, .p-pass { background: var(--okbg); color: var(--ok); }
+  .p-warnings, .p-warn, .p-interrupted, .p-cancelled { background: var(--warnbg); color: var(--warn); }
+  .p-blocked, .p-fail, .p-failed { background: var(--badbg); color: var(--bad); }
+  .p-invalid { background: var(--bad); color: #fff; }
+  .p-checking, .p-copying, .p-queued, .p-skip, .p-pending { background: #e5e7eb; color: #374151; }
+  .p-running { background: #dbeafe; color: #1d4ed8; }
+  .t-ok { color: var(--ok); } .t-warn { color: var(--warn); } .t-bad { color: var(--bad); }
+  .msg { padding: 8px 12px; margin: 8px 0; border-radius: 6px; }
+  .msg.err { background: var(--badbg); color: var(--bad); } .msg.note { background: var(--warnbg); } .msg.ok { background: var(--okbg); }
+  button.b { font: inherit; padding: 6px 12px; border-radius: 6px; border: 1px solid #c8ced6; background: #fff; cursor: pointer; }
+  button.b:hover:not(:disabled) { background: #f1f5f9; }
+  button.b:disabled { opacity: .45; cursor: default; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  button.primary:hover:not(:disabled) { background: #1d4ed8; }
+  button.small { padding: 3px 9px; font-size: 13px; }
+  button.danger { color: var(--bad); }
+  .drop { border: 2px dashed #b6bfcb; border-radius: 8px; padding: 22px; text-align: center; background: #fbfcfd; }
+  .drop.over { background: #eef4ff; border-color: var(--accent); }
+  .drop b { font-size: 15px; }
+  progress { width: 160px; height: 14px; vertical-align: middle; }
+  .bar { width: 100%; max-width: 260px; }
+  .ellip { max-width: min(380px, 26vw); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  pre { white-space: pre-wrap; background: #0f172a; color: #e2e8f0; padding: 10px; border-radius: 6px; font-size: 12px; max-height: 360px; overflow: auto; margin: 0; }
+  input[type=text], input[type=number], select { font: inherit; padding: 5px 8px; border: 1px solid #c8ced6; border-radius: 5px; width: 100%; max-width: 520px; }
+  input.n { width: 70px; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  video.player { max-height: 70vh; max-width: 100%; background: #000; border-radius: 6px; display: block; }
+  .thumbs { display: flex; flex-wrap: wrap; gap: 14px; }
+  .thumbs figure { margin: 0; }
+  .thumbs img { height: 300px; border: 1px solid var(--line); border-radius: 4px; display: block; }
+  .empty { padding: 26px; text-align: center; color: var(--muted); }
+  .sumgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+  .stat { background: #f8fafc; border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+  .stat .v { font-size: 18px; font-weight: 650; } .stat .l { font-size: 12px; color: var(--muted); }
+  @media (max-width: 700px) { td.k { width: 120px; } .thumbs img { height: 200px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>RenderHub</h1>
+  <span class="sub" id="topline">Loading...</span>
+  <span class="spacer"></span>
+  <span class="sub" id="hdr-device"></span>
+</header>
+<nav id="tabs">
+  <button data-tab="projects">Projects<span class="count" id="n-projects">0</span></button>
+  <button data-tab="project">Project<span class="count" id="n-project" style="display:none"></span></button>
+  <button data-tab="queue">Queue<span class="count" id="n-queue">0</span></button>
+  <button data-tab="pc">This PC</button>
+  <button data-tab="settings">Settings</button>
+</nav>
+<main>
+  <div id="global-msgs"></div>
+
+  <!-- ============ Projects ============ -->
+  <section class="tab" id="tab-projects">
+    <div class="card">
+      <div class="drop" id="upload-box">
+        <b>Add a project</b><br>
+        <span class="muted">Drop a project .zip here, or</span>
+        <input type="file" id="upload-file" accept=".zip,application/zip">
+        <div style="margin-top:8px"><progress id="upload-prog" max="100" value="0" style="display:none"></progress></div>
+        <div id="upload-msg"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row"><h2 style="margin:0">Projects</h2><span class="spacer"></span>
+        <span class="muted" id="proj-hint"></span><button class="b small" id="btn-rescan">Rescan</button></div>
+      <div id="proj-msg"></div>
+      <div class="scroll" style="margin-top:10px"><table id="projects">
+        <thead><tr><th>Project</th><th>Status</th><th class="num">Shots</th><th class="num">Frames</th><th>Problem</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- ============ Project ============ -->
+  <section class="tab" id="tab-project">
+    <div id="detail-top"><div class="card empty">Pick a project in the Projects tab.</div></div>
+    <div id="devices-area"></div>
+    <div id="video-area"></div>
+    <div id="detail"></div>
+  </section>
+
+  <!-- ============ Queue ============ -->
+  <section class="tab" id="tab-queue">
+    <div class="card" id="queue-sum"></div>
+    <div class="card"><div class="scroll" id="queue"></div></div>
+  </section>
+
+  <!-- ============ This PC ============ -->
+  <section class="tab" id="tab-pc">
+    <div class="card">
+      <div class="row"><h2 style="margin:0">This PC</h2><span class="spacer"></span><button class="b small" id="btn-redetect">Re-detect</button></div>
+      <div id="pc" style="margin-top:10px">Loading...</div>
+    </div>
+  </section>
+
+  <!-- ============ Settings ============ -->
+  <section class="tab" id="tab-settings">
+    <div class="card"><div id="settings">Loading...</div></div>
+  </section>
+</main>
+
+<script>
+"use strict";
+let selected = null, lastDetail = null, renderMsg = null, pendingUpload = null, overview = null;
+const checkedShots = new Set(), openLogs = new Set(), logCache = {};
+let testCount = 3;
+let videoKey = null, autoplayFor = null, devKey = null;
+
+// ---------------------------------------------------------------- helpers
+function esc(s) {
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+}
+function gb(x) { return x == null ? "unknown" : x.toFixed(1) + " GB"; }
+function pill(status, text) { return '<span class="pill p-' + esc(status) + '">' + esc(text || status) + "</span>"; }
+function msgHtml(kind, text) { return text ? '<div class="msg ' + kind + '">' + esc(text) + "</div>" : ""; }
+function msg(el, kind, text) { if (el) el.innerHTML = msgHtml(kind, text); }
+const $ = id => document.getElementById(id);
+async function api(path, body) {
+  const opt = body === undefined ? {} : {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(body)};
+  const r = await fetch(path, opt);
+  let data = null;
+  try { data = await r.json(); } catch (e) { data = {error: "bad response"}; }
+  if (!r.ok) throw new Error(data && data.error ? data.error : ("HTTP " + r.status));
+  return data;
+}
+
+// ---------------------------------------------------------------- tabs
+function showTab(name) {
+  if (!$("tab-" + name)) name = "projects";
+  document.querySelectorAll("section.tab").forEach(s => s.classList.toggle("on", s.id === "tab-" + name));
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
+  if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
+  if (name === "project") { lastDetail = null; refreshDetail(); }
+  if (name === "settings") loadSettings();
+  window.scrollTo(0, 0);
+}
+document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => showTab(b.dataset.tab));
+const currentTab = () => (location.hash || "#projects").slice(1);
+function openProject(id) { selected = id; lastDetail = null; showTab("project"); }
+
+// ---------------------------------------------------------------- This PC
+function renderPC(o) {
+  const h = o.hardware, b = o.blender;
+  const rows = [];
+  rows.push(["Blender", b.selected ? esc(b.selected.version) + ' <span class="muted">' + esc(b.selected.path) + "</span>"
+                                   : '<span class="t-bad">' + esc(b.error || "not found") + "</span>"]);
+  rows.push(["Renders with", h.chosen_backend ? "<b>" + esc(h.chosen_label) + '</b> <span class="muted">(' + esc(h.chosen_reason) + ")</span>"
+                                              : '<span class="t-bad">' + esc(h.chosen_reason) + "</span>"]);
+  const devs = (h.backends || []).map(x => esc(x.type) + ": " + (x.devices.length ? x.devices.map(d => esc(d.name)).join(", ") : '<span class="muted">none</span>'));
+  if (h.cpu_devices && h.cpu_devices.length) devs.push("CPU: " + h.cpu_devices.map(esc).join(", "));
+  rows.push(["Devices found", h.detecting ? "detecting..." : (devs.length ? devs.join("<br>") : '<span class="muted">not detected yet</span>')]);
+  rows.push(["GPU memory (VRAM)", h.chosen_backend === "CPU" ? "not used (CPU)" : (h.gpus.length ? h.gpus.map(g => esc(g.name) + ": " +
+    (g.vram_gb ? g.vram_gb.toFixed(1) + ' GB <span class="muted">(' + esc(g.vram_source) + ")</span>"
+               : '<span class="t-warn">unknown</span> <span class="muted">(enter it in Settings)</span>')).join("<br>") : "unknown")]);
+  rows.push(["CPU", esc(h.cpu) + ' <span class="muted">(' + esc(h.threads) + " threads)</span>"]);
+  rows.push(["RAM", gb(h.ram_total_gb) + ' total, ' + gb(h.ram_free_gb) + " free"]);
+  for (const k of ["projects", "output"]) {
+    const d = h.disks[k];
+    const bad = d.kind === "HDD" || (d.free_pct != null && d.free_pct < 10);
+    rows.push(["Disk for " + k, '<span class="' + (bad ? "t-warn" : "") + '">' + gb(d.free == null ? null : d.free / 1073741824) + " free of " +
+      gb(d.total == null ? null : d.total / 1073741824) + ", " + esc(d.kind || "type unknown") + '</span> <span class="muted">' + esc(d.path) + "</span>"]);
+  }
+  const ff = o.ffmpeg || {};
+  rows.push(["ffmpeg (finished video)", ff.ok ? esc(ff.version) + ' <span class="muted">' + esc(ff.path) + "</span>"
+                                             : '<span class="t-warn">' + esc(ff.problem || "not found") + "</span>"]);
+  rows.push(["System", esc(h.os) + (h.psutil ? "" : ' <span class="muted">(psutil not installed; using OS commands)</span>')]);
+  rows.push(["Detected", esc(h.detected_at || "not yet")]);
+  let html = "<table><tbody>" + rows.map(r => '<tr><td class="k">' + r[0] + "</td><td>" + r[1] + "</td></tr>").join("") + "</tbody></table>";
+  if (h.detect_error) html += msgHtml("err", h.detect_error);
+  if (b.notice) html += msgHtml("note", b.notice);
+  (h.probe_errors || []).forEach(e => html += msgHtml("note", e));
+  $("pc").innerHTML = html;
+  $("hdr-device").textContent = (h.chosen_label ? h.chosen_label + (h.gpus.length ? ": " + h.gpus.map(g => g.name).join(", ") : "") : "") +
+    (b.selected ? "  ·  Blender " + b.selected.version : "");
+}
+
+// ---------------------------------------------------------------- Projects
+function renderProjects(o) {
+  $("proj-hint").textContent = o.last_scan ? "checked " + o.last_scan.slice(11) : "";
+  $("n-projects").textContent = o.projects.filter(p => p.kind === "folder").length;
+  checkUploadArrived(o.projects);
+  const tb = document.querySelector("#projects tbody");
+  if (!o.projects.length) { tb.innerHTML = '<tr><td colspan="6" class="empty">No projects yet. Upload a zip above.</td></tr>'; return; }
+  const order = {ready: 0, warnings: 1, checking: 2, copying: 2, blocked: 3, invalid: 4};
+  const list = [...o.projects].sort((a, b) => (order[a.status] - order[b.status]) || a.title.localeCompare(b.title));
+  tb.innerHTML = list.map(p => {
+    let name = "<b>" + esc(p.title) + "</b>" + (p.title !== p.id ? '<div class="muted">' + esc(p.id) + "</div>" : "");
+    if (p.kind === "zip") name += '<div class="muted">zip file</div>';
+    const canStart = p.status === "ready" || p.status === "warnings";
+    const actions = (p.has_video ? "<button class='b small btn-play' data-id='" + esc(p.id) + "'>&#9654; Play video</button> " : "") +
+      (canStart && !p.has_video ? "<button class='b small primary btn-start' data-id='" + esc(p.id) + "'>Start rendering</button> "
+        : (p.kind === "folder" && !p.has_video ? "<button class='b small btn-open' data-id='" + esc(p.id) + "'>Open</button> " : "")) +
+      "<button class='b small danger btn-remove' data-id='" + esc(p.id) + "' data-title='" + esc(p.title) + "' title='Move this project to the trash folder'>Remove</button>";
+    return '<tr class="click' + (p.id === selected ? " sel" : "") + '" data-id="' + esc(p.id) + '"><td>' + name + "</td><td>" +
+      pill(p.status, p.status_text) +
+      (p.kind === "folder" && p.device_label ? '<div class="muted">' + esc(p.device_label) + (p.device_custom ? " (chosen)" : "") + "</div>" : "") +
+      '</td><td class="num">' + (p.shots || "") + '</td><td class="num">' + (p.total_frames || "") +
+      '</td><td><div class="ellip" title="' + esc(p.first_problem || "") + '">' + esc(p.first_problem || "") + "</div></td><td style='white-space:nowrap'>" + actions + "</td></tr>";
+  }).join("");
+  tb.querySelectorAll("tr.click").forEach(tr => tr.onclick = () => { if (o.projects.find(p => p.id === tr.dataset.id && p.kind === "folder")) openProject(tr.dataset.id); });
+  tb.querySelectorAll(".btn-start").forEach(b => b.onclick = ev => { ev.stopPropagation(); startProject(b.dataset.id); });
+  tb.querySelectorAll(".btn-open").forEach(b => b.onclick = ev => { ev.stopPropagation(); openProject(b.dataset.id); });
+  tb.querySelectorAll(".btn-play").forEach(b => b.onclick = ev => { ev.stopPropagation(); playVideo(b.dataset.id); });
+  tb.querySelectorAll(".btn-remove").forEach(b => b.onclick = ev => { ev.stopPropagation(); removeProject(b.dataset.id, b.dataset.title); });
+}
+
+// ---------------------------------------------------------------- upload and start
+function uploadFile(file) {
+  const um = $("upload-msg"), prog = $("upload-prog");
+  if (!file) { msg(um, "err", "Choose a .zip file first."); return; }
+  if (!/\.zip$/i.test(file.name)) { msg(um, "err", "Only .zip files can be added (a zip of the project folder)."); return; }
+  const xhr = new XMLHttpRequest();
+  xhr.open("POST", "/api/upload?name=" + encodeURIComponent(file.name));
+  xhr.setRequestHeader("Content-Type", "application/zip");
+  xhr.setRequestHeader("X-RenderHub-Upload", "1");
+  prog.style.display = ""; prog.value = 0;
+  msg(um, "note", "Uploading " + file.name + "...");
+  xhr.upload.onprogress = e => { if (e.lengthComputable) { prog.value = Math.round(100 * e.loaded / e.total);
+    msg(um, "note", "Uploading " + file.name + ": " + prog.value + "% (" + (e.loaded / 1048576).toFixed(0) + " of " + (e.total / 1048576).toFixed(0) + " MB)"); } };
+  xhr.onload = () => {
+    prog.style.display = "none";
+    let r = {}; try { r = JSON.parse(xhr.responseText); } catch (e) {}
+    if (xhr.status !== 200) { msg(um, "err", "Upload failed: " + (r.error || ("HTTP " + xhr.status))); return; }
+    pendingUpload = {zip: r.zip};
+    msg(um, "note", "Uploaded " + r.zip + ". Extracting and checking...");
+    refresh();
+  };
+  xhr.onerror = () => { prog.style.display = "none"; msg(um, "err", "Upload failed: RenderHub did not answer. Is its window still open?"); };
+  xhr.send(file);
+  $("upload-file").value = "";
+}
+function checkUploadArrived(projects) {
+  if (!pendingUpload) return;
+  const um = $("upload-msg");
+  const zipRow = projects.find(p => p.id === pendingUpload.zip);
+  const proj = projects.find(p => p.from_zip === pendingUpload.zip);
+  if (zipRow && zipRow.status === "invalid") {
+    msg(um, "err", pendingUpload.zip + " was not added: " + (zipRow.first_problem || "invalid zip"));
+    pendingUpload = null; return;
+  }
+  if (!proj) return;
+  if (proj.status === "checking" || proj.status === "copying") { msg(um, "note", "Added " + proj.title + ". Checking it..."); return; }
+  selected = proj.id;
+  const ok = proj.status === "ready" || proj.status === "warnings";
+  um.innerHTML = '<div class="msg ' + (ok ? "ok" : "err") + '">Added <b>' + esc(proj.title) + "</b>: " + esc(proj.status_text) + ". " +
+    (ok ? "Ready to render. " : "See the checklist for what to fix. ") +
+    (ok ? "<button class='b small primary' id='um-start'>Start rendering</button> " : "") + "<button class='b small' id='um-open'>Open project</button></div>";
+  const id = proj.id;
+  if ($("um-start")) $("um-start").onclick = () => startProject(id);
+  $("um-open").onclick = () => openProject(id);
+  pendingUpload = null;
+}
+async function removeProject(id, title) {
+  if (!confirm('Remove "' + title + '" from RenderHub?\n\nIts folder is moved to the "trash" folder next to projects/, so you can still get it back. ' +
+               "Delete the trash folder yourself when you want the disk space back.")) return;
+  const withOutput = confirm('Also move the rendered frames and video of "' + title + '" to the trash?\n\nOK = yes, remove them too\nCancel = keep them in output/');
+  const pm = $("proj-msg");
+  try {
+    const r = await api("/api/projects/" + encodeURIComponent(id) + "/remove", {with_output: withOutput});
+    msg(pm, "ok", "Removed " + title + " (" + r.moved.join(" and ") + " moved to " + r.trash + ").");
+    if (selected === id) { selected = null; lastDetail = null; videoKey = null; }
+    showTab("projects"); refresh();
+  } catch (e) { msg(pm, "err", e.message); showTab("projects"); }
+}
+function playVideo(id) {
+  openProject(id);
+  autoplayFor = id;
+}
+async function openFolder(which) {
+  try { await api("/api/projects/" + encodeURIComponent(selected) + "/open-folder", {which: which}); }
+  catch (e) { alert(e.message); }
+}
+async function startProject(id) {
+  selected = id; lastDetail = null;
+  try {
+    const r = await api("/api/jobs", {project: id});
+    renderMsg = {project: id, kind: "ok", text: r.created.length + " job(s) queued." + (r.skipped.length ? " " + r.skipped.join(" ") : "")};
+    if (r.created.length) { showTab("queue"); refresh(); return; }
+  } catch (e) { renderMsg = {project: id, kind: "err", text: e.message}; }
+  openProject(id);
+}
+(function setupUpload() {
+  const box = $("upload-box"), input = $("upload-file");
+  input.onchange = () => { if (input.files[0]) uploadFile(input.files[0]); };
+  ["dragenter", "dragover"].forEach(t => box.addEventListener(t, e => { e.preventDefault(); box.classList.add("over"); }));
+  ["dragleave", "drop"].forEach(t => box.addEventListener(t, e => { e.preventDefault(); box.classList.remove("over"); }));
+  box.addEventListener("drop", e => { if (e.dataTransfer.files.length) uploadFile(e.dataTransfer.files[0]); });
+  ["dragover", "drop"].forEach(t => window.addEventListener(t, e => e.preventDefault()));
+})();
+
+// ---------------------------------------------------------------- Project detail
+function rulesTable(rules) {
+  return "<table><thead><tr><th>Check</th><th>Result</th></tr></thead><tbody>" + rules.map(r => {
+    let more = "";
+    if (r.fix) more += '<div class="muted">Fix: ' + esc(r.fix) + "</div>";
+    if (r.details && r.details.length > 1)
+      more += "<details data-rid='" + esc(r.id) + "'><summary>" + r.details.length + " details</summary><ul>" + r.details.map(d => "<li>" + esc(d) + "</li>").join("") + "</ul></details>";
+    const st = {pass: "pass", warn: "warn", fail: "fail"}[r.status] || "skip";
+    return "<tr><td style='white-space:nowrap'>" + pill(st, {pass: "OK", warn: "Warning", fail: "Problem", skip: "Skipped", pending: "Checking"}[r.status] || r.status) +
+      " " + esc(r.title) + "</td><td>" + esc(r.message) + more + "</td></tr>";
+  }).join("") + "</tbody></table>";
+}
+function renderDevices(d) {
+  const area = $("devices-area"), P = d.devices;
+  if (!P) { area.innerHTML = ""; devKey = null; return; }
+  const key = selected + "|" + JSON.stringify(P);
+  if (key === devKey) return;  // unchanged: leave the controls alone
+  devKey = key;
+  const c = P.choice;
+  const back = c.backend === "auto" ? null : P.backends.find(b => b.type === c.backend);
+  const opts = ['<option value="auto"' + (c.backend === "auto" ? " selected" : "") + ">Automatic (best on this PC: " + esc(P.auto_label) + ")</option>"]
+    .concat(P.backends.map(b => '<option value="' + esc(b.type) + '"' + (c.backend === b.type ? " selected" : "") + ">" + esc(b.label) + " (GPU)</option>"))
+    .concat(['<option value="CPU"' + (c.backend === "CPU" ? " selected" : "") + ">CPU only (" + esc(P.cpu.name) + ")</option>"]);
+  if (c.backend !== "auto" && c.backend !== "CPU" && !back) opts.push('<option value="' + esc(c.backend) + '" selected>' + esc(c.backend) + " (not on this PC)</option>");
+  const row = (k, v) => '<tr><td class="k">' + k + "</td><td>" + v + "</td></tr>";
+  let rows = row("Render on", '<select id="dev-backend" style="max-width:520px">' + opts.join("") + "</select>");
+  if (back) {
+    const all = !c.devices.length;
+    rows += row("GPUs", back.devices.map(g => '<label style="display:block"><input type="checkbox" class="dev-gpu" value="' + esc(g.id) + '"' +
+      (all || c.devices.includes(g.id) ? " checked" : "") + "> " + esc(g.name) + "</label>").join("") +
+      '<div class="muted">Tick the GPUs this project may use. With several jobs at once, each job takes one ticked GPU.</div>');
+    rows += row("CPU", back.cpu_hybrid
+      ? '<label><input type="checkbox" id="dev-cpu"' + (c.use_cpu ? " checked" : "") + "> Also use the CPU (" + esc(P.cpu.name) + ") together with the GPU</label>" +
+        '<div class="muted">Not always faster: compare with a test render.</div>'
+      : '<span class="muted">This backend cannot add the CPU.</span>');
+  } else if (c.backend === "auto") {
+    rows += row("GPUs", '<span class="muted">All GPUs of the best type. Pick a backend above to choose specific GPUs or add the CPU.</span>');
+  }
+  const cpuUsed = c.backend === "CPU" || (back && c.use_cpu);
+  if (cpuUsed) rows += row("CPU threads", '<input type="number" class="n" id="dev-threads" min="0" max="1024" value="' + (c.threads || 0) + '"> ' +
+    '<span class="muted">0 = all ' + P.cpu.threads + " threads. Fewer leaves the PC usable while it renders.</span>");
+  const res = P.resolved;
+  rows += row("Result", res.ok ? '<span class="t-ok"><b>' + esc(res.label) + "</b>: " + esc(res.text) + "</span>" +
+      (res.vram_gb ? ' <span class="muted">(' + res.vram_gb.toFixed(0) + " GB GPU memory)</span>" : "")
+    : '<span class="t-bad">' + esc(res.reason) + "</span>");
+  area.innerHTML = '<div class="card"><div class="row"><h2 style="margin:0">Render with</h2><span class="spacer"></span>' +
+    '<span class="muted">Saved for this project on this PC. A new device choice needs a new test render for the estimate.</span></div>' +
+    '<table style="margin-top:8px"><tbody>' + rows + '</tbody></table><div id="dev-msg"></div></div>';
+  const save = async () => {
+    const body = {backend: $("dev-backend").value,
+      devices: [...area.querySelectorAll(".dev-gpu")].filter(x => x.checked).map(x => x.value),
+      use_cpu: $("dev-cpu") ? $("dev-cpu").checked : false,
+      threads: $("dev-threads") ? Number($("dev-threads").value) || 0 : 0};
+    if (body.backend !== c.backend) { body.devices = []; }  // new backend: start with all its GPUs
+    else if ($("dev-backend") && area.querySelectorAll(".dev-gpu").length && !body.devices.length) {
+      msg($("dev-msg"), "err", "Tick at least one GPU, or choose CPU only."); return;
+    }
+    else if (body.devices.length === area.querySelectorAll(".dev-gpu").length) { body.devices = []; }  // all = no restriction
+    try { await api("/api/projects/" + encodeURIComponent(selected) + "/devices", body); devKey = null; lastDetail = null; refreshDetail(); refresh(); }
+    catch (e) { msg($("dev-msg"), "err", e.message); }
+  };
+  area.querySelectorAll("select, input").forEach(x => x.onchange = save);
+}
+
+function renderVideo(d) {
+  const area = $("video-area");
+  const v = d.video;
+  const key = selected + "|" + JSON.stringify(v) + "|" + d.frames_complete + "|" + d.video_job + "|" + d.row.total_frames;
+  if (key === videoKey) return;  // unchanged: do not touch the player while it plays
+  videoKey = key;
+  const ve = d.video_engine || {};
+  let html = '<div class="card"><div class="row"><h2 style="margin:0">Video</h2>' +
+    (ve.engine === "ffmpeg" ? ' <span class="pill p-pass">with sound and captions</span>' : ' <span class="pill p-skip">no sound</span>') +
+    '<span class="spacer"></span>';
+  const making = d.video_job ? '<span class="pill p-running">' + (d.video_job === "running" ? "making video..." : "video queued") + "</span> " : "";
+  if (v) {
+    html += making + '<button class="b small" id="v-player">Open in video player</button> <button class="b small" id="v-folder">Open folder</button> ' +
+      '<a class="b small" style="text-decoration:none;color:inherit;padding:3px 9px;border:1px solid #c8ced6;border-radius:6px" href="' + esc(v.url) + '?download=1">Download</a> ' +
+      '<button class="b small" id="v-remake"' + (d.frames_complete && !d.video_job ? "" : " disabled") + ">Make again</button></div>";
+    if (v.outdated) html += msgHtml("note", "Some frames were rendered after this video was made. Press Make again to update it.");
+    if (ve.why) html += msgHtml("note", ve.why);
+    html += '<video class="player" id="player" controls preload="metadata" playsinline src="' + esc(v.url) + "?v=" + encodeURIComponent(v.made + v.size) + '"></video>' +
+      '<div class="muted" style="margin-top:6px">' + esc(v.path) + " · " + (v.size / 1048576).toFixed(1) + " MB · made " + esc(v.made) + "</div>";
+  } else {
+    html += making + '<button class="b small primary" id="v-make"' + (d.frames_complete && !d.video_job ? "" : " disabled") + ">Make video</button></div>";
+    if (ve.why) html += msgHtml("note", ve.why);
+    html += '<div class="muted">' + (d.frames_complete ? "All frames are rendered. The video is made automatically after the last shot finishes; press Make video if it is not there."
+      : "The video (MP4) is made automatically when every shot has finished rendering.") + "</div>";
+  }
+  area.innerHTML = html + "</div>";
+  const make = async () => { try { await api("/api/projects/" + encodeURIComponent(selected) + "/video", {}); videoKey = null; refresh(); refreshDetail(); } catch (e) { alert(e.message); } };
+  if ($("v-make")) $("v-make").onclick = make;
+  if ($("v-remake")) $("v-remake").onclick = make;
+  if ($("v-player")) $("v-player").onclick = () => openFolder("video");
+  if ($("v-folder")) $("v-folder").onclick = () => openFolder("output");
+  if (autoplayFor === selected && $("player")) {
+    autoplayFor = null;
+    area.scrollIntoView({behavior: "smooth"});
+    $("player").play().catch(() => {});
+  }
+}
+
+function testCard(t) {
+  if (!t) return '<div class="card"><h2>Test render</h2><div class="muted">No test render yet. It renders a few frames spread over the project at the real settings, ' +
+    "measures the time per frame, and shows the images so you can catch problems before a long render.</div></div>";
+  let html = '<div class="card"><h2>Test render</h2><div class="muted">' + t.frames.length + " frame(s) on " + esc((t.devices || []).join(", ") || t.backend) + ", " +
+    esc(t.at) + (t.complete ? "" : " (incomplete)") + ". Blender start-up " + esc(t.startup_seconds) + " s.</div>";
+  if (t.stale) html += msgHtml("note", "These results are from different settings, another device or an older copy of the package. Run the test again for a current estimate.");
+  html += msgHtml("note", "Look at the test frames before a full render: dark or magenta areas, blotches from the denoiser, missing characters.");
+  html += '<div class="thumbs">' + t.frames.map(f =>
+    '<figure><a href="/files/output/' + encodeURI(f.image) + '" target="_blank"><img src="/files/output/' + encodeURI(f.image) + "?t=" + encodeURIComponent(t.at) +
+    '"></a><figcaption class="muted">' + esc(f.shot) + " frame " + f.frame + ": " + f.seconds.toFixed(1) + " s</figcaption></figure>").join("") + "</div>";
+  return html + '<div class="muted" style="margin-top:6px">The first frame of each shot includes loading the scene and GPU setup, so estimates err on the long side.</div></div>';
+}
+async function refreshDetail() {
+  const el = $("detail"), top = $("detail-top");
+  const tabBadge = $("n-project");
+  if (!selected) {
+    tabBadge.style.display = "none"; top.innerHTML = '<div class="card empty">Pick a project in the Projects tab.</div>';
+    el.innerHTML = ""; $("video-area").innerHTML = ""; $("devices-area").innerHTML = ""; videoKey = null; devKey = null; return;
+  }
+  let d;
+  try { d = await api("/api/projects/" + encodeURIComponent(selected)); }
+  catch (e) { top.innerHTML = '<div class="card">' + msgHtml("err", e.message) + "</div>"; el.innerHTML = ""; selected = null; return; }
+  renderDevices(d);
+  renderVideo(d);
+  tabBadge.style.display = ""; tabBadge.textContent = d.row.title.length > 18 ? d.row.title.slice(0, 17) + "…" : d.row.title;
+  const key = JSON.stringify(d) + JSON.stringify(renderMsg);
+  if (key === lastDetail) return;
+  lastDetail = key;
+  const open = new Set([...el.querySelectorAll("details[open]")].map(x => x.dataset.rid));
+  const m = d.manifest || {}, r = m.render || {}, q = m.requirements || {}, est = d.estimate || {};
+  const canRender = ["ready", "warnings"].includes(d.row.status);
+  const fails = d.rules.filter(x => x.status === "fail").length, warns = d.rules.filter(x => x.status === "warn").length;
+
+  // header card: status, numbers, actions
+  let html = '<div class="card"><div class="row"><h2 style="margin:0;font-size:18px">' + esc(d.row.title) + "</h2>" + pill(d.row.status, d.row.status_text) +
+    '<span class="spacer"></span><button class="b" id="btn-test"' + (canRender && d.shots.length ? "" : " disabled") + '>Test render</button>' +
+    ' <input type="number" class="n" id="test-count" min="1" max="12" value="' + testCount + '" title="frames to test"> ' +
+    '<button class="b primary" id="btn-render-all"' + (canRender && d.shots.length ? "" : " disabled") + ">Start rendering (all shots)</button>" +
+    ' <button class="b danger" id="btn-remove-proj">Remove</button></div>';
+  html += '<div class="muted" style="margin:4px 0 10px">' + esc(d.path) + "</div>";
+  if (renderMsg && renderMsg.project === selected) html += msgHtml(renderMsg.kind, renderMsg.text);
+  if (d.zip_problem) html += msgHtml("err", d.zip_problem);
+  if (!canRender && d.rules.length) html += msgHtml("err", "This project cannot render yet: fix the items marked Problem below.");
+  const totalDisk = Object.values(d.on_disk || {}).reduce((a, b) => a + b, 0);
+  html += '<div class="sumgrid">' +
+    '<div class="stat"><div class="v">' + d.shots.length + '</div><div class="l">shots</div></div>' +
+    '<div class="stat"><div class="v">' + totalDisk + " / " + d.row.total_frames + '</div><div class="l">frames rendered</div></div>' +
+    '<div class="stat"><div class="v" style="font-size:14px">' + esc(est.known ? est.text : "unknown") + '</div><div class="l">estimate' +
+      (est.known ? "" : ": run a test render") + "</div></div>" +
+    '<div class="stat"><div class="v" style="font-size:14px">' + esc(r.resolution_x) + "×" + esc(r.resolution_y) + ", " + esc(r.fps) + " fps, " + esc(r.samples) +
+      ' samples</div><div class="l">denoise ' + (r.denoise ? "on" : "off") + ", Blender " + esc((m.blender || {}).built_with || "?") + "</div></div>" +
+    '<div class="stat"><div class="v" style="font-size:14px">' + (fails ? '<span class="t-bad">' + fails + " problem(s)</span>" : warns ? '<span class="t-warn">' + warns + " warning(s)</span>" : '<span class="t-ok">all checks OK</span>') +
+      '</div><div class="l">needs VRAM ' + esc(q.min_vram_gb ?? "-") + " GB, RAM " + esc(q.min_ram_gb ?? "-") + " GB</div></div></div>";
+  html += '<div class="muted" style="margin-top:8px">Frames go to ' + esc(d.output_dir || "") + ". Frames already on disk are skipped.</div></div>";
+
+  // the header goes above the video; everything else below it
+  const headEnd = html.length;
+  // shots
+  if (d.shots.length) {
+    const disk = d.on_disk || {};
+    html += '<div class="card"><div class="row"><h2 style="margin:0">Shots</h2><span class="spacer"></span>' +
+      '<button class="b small" id="btn-render-sel"' + (canRender ? "" : " disabled") + ">Render ticked shots</button></div>" +
+      '<div class="scroll" style="margin-top:8px"><table><thead><tr><th><input type="checkbox" id="chk-all" title="tick all"></th><th>Shot</th><th>Frames</th>' +
+      '<th class="num">Count</th><th>Rendered</th><th class="num">Samples</th><th>Fixes</th><th>Notes</th></tr></thead><tbody>';
+    html += d.shots.map(s => {
+      const n = disk[s.id] || 0, pct = s.render_frames ? Math.round(100 * n / s.render_frames) : 0;
+      const range = s.render_frames ? s.render_start + "–" + s.render_end + (s.render_start !== s.frame_start ? ' <span class="muted">(file ' + s.frame_start + "–" + s.frame_end + ")</span>" : "") : '<span class="muted">none</span>';
+      return "<tr><td><input type='checkbox' class='chk-shot' data-shot='" + esc(s.id) + "'" + (checkedShots.has(selected + "/" + s.id) ? " checked" : "") +
+        (s.render_frames ? "" : " disabled") + "></td><td><b>" + esc(s.id) + "</b></td><td>" + range + '</td><td class="num">' + s.render_frames + "</td><td>" +
+        '<progress class="bar" max="' + (s.render_frames || 1) + '" value="' + n + '"></progress> <span class="muted">' + n + " (" + pct + "%)</span></td>" +
+        '<td class="num">' + esc(s.samples || r.samples || "") + "</td><td>" + esc(s.fixes.join(", ")) + "</td><td>" + esc(s.notes) + "</td></tr>";
+    }).join("") + "</tbody></table></div></div>";
+    html += testCard(d.test);
+  }
+
+  // checklist
+  html += '<div class="card"><div class="row"><h2 style="margin:0">Checks</h2><span class="spacer"></span>' +
+    (d.row.kind === "folder" ? '<button class="b small" id="btn-recheck">Check again</button>' : "") + "</div>" +
+    '<div style="margin-top:8px">' + (d.rules.length ? rulesTable(d.rules) : '<div class="muted">Waiting for the copy to finish...</div>') + "</div>" +
+    (d.checked_at ? '<div class="muted" style="margin-top:6px">Package checked ' + esc(d.checked_at) +
+      (d.blender_check_at ? "; Blender check " + esc(d.blender_check_at) + " (" + esc(d.blender_check_seconds) + " s)" : "") + ".</div>" : "") + "</div>";
+
+  top.innerHTML = html.slice(0, headEnd);
+  el.innerHTML = html.slice(headEnd);
+  el.querySelectorAll("details").forEach(x => { if (open.has(x.dataset.rid)) x.open = true; });
+  const title = d.row.title;
+  $("btn-remove-proj").onclick = () => removeProject(selected, title);
+
+  const act = async fn => {
+    try { renderMsg = {project: selected, kind: "ok", text: await fn()}; } catch (e) { renderMsg = {project: selected, kind: "err", text: e.message}; }
+    lastDetail = null; refresh(); refreshDetail();
+  };
+  const sendJobs = async shots => {
+    const r = await api("/api/jobs", {project: selected, shots: shots});
+    if (r.created.length) setTimeout(() => showTab("queue"), 600);
+    return r.created.length + " job(s) queued." + (r.skipped.length ? " " + r.skipped.join(" ") : "");
+  };
+  if ($("btn-recheck")) $("btn-recheck").onclick = () => act(async () => { await api("/api/projects/" + encodeURIComponent(selected) + "/recheck", {}); return "Checking again..."; });
+  el.querySelectorAll(".chk-shot").forEach(c => c.onchange = () => { const k = selected + "/" + c.dataset.shot; c.checked ? checkedShots.add(k) : checkedShots.delete(k); });
+  if ($("chk-all")) $("chk-all").onchange = () => el.querySelectorAll(".chk-shot:not(:disabled)").forEach(c => { c.checked = $("chk-all").checked; c.onchange(); });
+  if ($("test-count")) $("test-count").onchange = () => { testCount = Math.max(1, Math.min(12, Number($("test-count").value) || 3)); };
+  if ($("btn-test")) $("btn-test").onclick = () => act(async () => {
+    await api("/api/projects/" + encodeURIComponent(selected) + "/test-render", {frames: testCount});
+    return "Test render queued. The images appear below when it finishes (progress is in the Queue tab).";
+  });
+  if ($("btn-render-sel")) $("btn-render-sel").onclick = () => act(async () => {
+    const shots = [...el.querySelectorAll(".chk-shot:checked")].map(c => c.dataset.shot);
+    if (!shots.length) throw new Error("Tick the shots to render first.");
+    return sendJobs(shots);
+  });
+  if ($("btn-render-all")) $("btn-render-all").onclick = () => act(() => sendJobs(null));
+}
+
+// ---------------------------------------------------------------- Queue
+function renderQueue(q) {
+  const active = q ? q.active : 0;
+  const nq = $("n-queue");
+  nq.textContent = active; nq.classList.toggle("live", active > 0);
+  const running = q ? q.jobs.filter(j => j.state === "running").length : 0;
+  $("queue-sum").innerHTML = '<div class="row"><div class="sumgrid" style="flex:1">' +
+    '<div class="stat"><div class="v">' + running + '</div><div class="l">running (max ' + (q ? q.concurrency : 1) + " at a time)</div></div>" +
+    '<div class="stat"><div class="v">' + (q ? q.jobs.filter(j => j.state === "queued").length : 0) + '</div><div class="l">waiting</div></div>' +
+    '<div class="stat"><div class="v">' + esc(q && q.total_eta ? q.total_eta : "–") + '</div><div class="l">until the queue is done' +
+      (q && q.unknown_eta_jobs ? " (" + q.unknown_eta_jobs + " job(s) without estimate)" : "") + "</div></div>" +
+    '<div class="stat"><div class="v">' + (q && q.keep_awake ? "on" : "off") + '</div><div class="l">keeping the PC awake</div></div></div>' +
+    (q && q.jobs.some(j => j.state === "done") ? "<button class='b small' id='btn-clear-done'>Remove finished jobs</button>" : "") + "</div>";
+  if ($("btn-clear-done")) $("btn-clear-done").onclick = async () => { await api("/api/jobs/clear-finished", {}); refresh(); };
+  const el = $("queue");
+  if (!q || !q.jobs.length) { el.innerHTML = '<div class="empty">No jobs. Open a project and press Start rendering or Test render.</div>'; return; }
+  let html = "<table><thead><tr><th>Project</th><th>Job</th><th>State</th><th>Progress</th><th>Time</th><th></th></tr></thead><tbody>";
+  html += q.jobs.map(j => {
+    const pct = j.total ? Math.round(100 * j.done / j.total) : 0;
+    let time = [];
+    if (j.elapsed) time.push("elapsed " + esc(j.elapsed));
+    if (j.eta) time.push("<b>ETA " + esc(j.eta) + "</b>" + (j.eta_source ? ' <span class="muted">(' + esc(j.eta_source) + ")</span>" : ""));
+    if (j.fpm) time.push('<span class="muted">' + j.fpm + " frames/min, " + j.spf + " s/frame</span>");
+    const btns = [];
+    if (j.state === "queued" || j.state === "running") btns.push("<button class='b small danger' data-act='cancel' data-id='" + esc(j.id) + "'>Cancel</button>");
+    if (["interrupted", "cancelled", "failed"].includes(j.state)) btns.push("<button class='b small primary' data-act='resume' data-id='" + esc(j.id) + "'>" + (j.state === "failed" ? "Retry" : "Resume") + "</button>");
+    if (j.state !== "running") btns.push("<button class='b small' data-act='remove' data-id='" + esc(j.id) + "' title='Removes the job from the list; frames stay on disk'>Remove</button>");
+    btns.push("<button class='b small' data-log='" + esc(j.id) + "'>" + (openLogs.has(j.id) ? "Hide log" : "Log") + "</button>");
+    const extra = (j.error ? '<div class="' + (j.state === "failed" ? "t-bad" : "t-warn") + '" style="white-space:pre-wrap;max-width:420px;font-size:13px">' + esc(j.error) + "</div>" : "") +
+      (j.warnings && j.warnings.length ? '<div class="t-warn" style="font-size:13px">' + j.warnings.map(esc).join("<br>") + "</div>" : "");
+    return "<tr><td><b>" + esc(j.title) + "</b></td><td>" + esc(j.label) + '<div class="muted">' + (j.devices && j.devices.length ? esc(j.devices.join(", ")) : esc(j.id)) + "</div></td><td>" +
+      pill(j.state) + extra + "</td><td>" + '<progress class="bar" max="' + (j.total || 1) + '" value="' + j.done + '"></progress><div class="muted">' + j.done + " / " + j.total +
+      " frames (" + pct + "%)" + (j.current ? " · " + esc(j.current) : "") + "</div></td><td>" + time.join("<br>") + "</td><td style='white-space:nowrap'>" + btns.join(" ") + "</td></tr>" +
+      (openLogs.has(j.id) ? "<tr><td colspan='6'><pre id='log-" + esc(j.id) + "'>" + esc(logCache[j.id] || "loading...") + "</pre></td></tr>" : "");
+  }).join("");
+  el.innerHTML = html + "</tbody></table>";
+  el.querySelectorAll("button[data-act]").forEach(b => b.onclick = async () => {
+    try { await api("/api/jobs/" + encodeURIComponent(b.dataset.id) + "/" + b.dataset.act, {}); refresh(); } catch (e) { alert(e.message); }
+  });
+  el.querySelectorAll("button[data-log]").forEach(b => b.onclick = () => { const id = b.dataset.log; openLogs.has(id) ? openLogs.delete(id) : openLogs.add(id); renderQueue(overview.queue); refreshLogs(); });
+}
+async function refreshLogs() {
+  for (const id of openLogs) {
+    try { logCache[id] = (await api("/api/jobs/" + encodeURIComponent(id) + "/log")).log; } catch (e) { openLogs.delete(id); }
+    const pre = $("log-" + id);
+    if (pre) { const atEnd = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 20; pre.textContent = logCache[id]; if (atEnd) pre.scrollTop = pre.scrollHeight; }
+  }
+}
+
+// ---------------------------------------------------------------- Settings
+async function loadSettings() {
+  const s = await api("/api/settings");
+  const v = s.settings, h = s.help;
+  const devs = ["auto", "OPTIX", "CUDA", "HIP", "METAL", "ONEAPI", "CPU"];
+  const cands = (s.blender.candidates || []).map(c => "<div>" + esc(c.version || "?") + " <code>" + esc(c.path) + '</code> <span class="muted">(' + esc(c.source) +
+    ")</span> <button class='b small use-blender' data-path='" + esc(c.path) + "'>Use this</button></div>").join("");
+  const row = (label, input, help) => '<tr><td class="k">' + label + "</td><td>" + input + (help ? '<div class="muted">' + esc(help) + "</div>" : "") + "</td></tr>";
+  let html = '<div id="settings-msg"></div><table><tbody>';
+  html += row("Blender path", "<input type='text' id='s-blender_path' value='" + esc(v.blender_path) + "' placeholder='empty = find automatically'>",
+    h.blender_path) .replace("</td></tr>", (cands ? '<div style="margin-top:6px">' + cands + "</div>" : "") + "<button class='b small' id='btn-find-blender' style='margin-top:6px'>Search for Blender again</button></td></tr>");
+  html += row("Render device", "<select id='s-device_override'>" + devs.map(d => "<option" + (d === v.device_override ? " selected" : "") + ">" + d + "</option>").join("") + "</select>", h.device_override);
+  html += row("VRAM override (GB)", "<input type='number' class='n' step='0.5' min='0.5' id='s-vram_gb_override' value='" + esc(v.vram_gb_override ?? "") + "'>", h.vram_gb_override);
+  html += row("Max concurrent jobs", "<input type='number' class='n' min='1' max='16' id='s-max_concurrent_jobs' value='" + esc(v.max_concurrent_jobs) + "'>", h.max_concurrent_jobs);
+  html += row("Chunk size (frames)", "<input type='number' class='n' min='0' id='s-chunk_size' value='" + esc(v.chunk_size) + "'>", h.chunk_size);
+  html += row("Keep PC awake", "<label><input type='checkbox' id='s-prevent_sleep'" + (v.prevent_sleep ? " checked" : "") + "> while jobs run</label>", null);
+  html += row("ffmpeg path", "<input type='text' id='s-ffmpeg_path' value='" + esc(v.ffmpeg_path) + "'>", h.ffmpeg_path);
+  html += row("Port", "<input type='number' class='n' style='width:100px' min='1024' max='65535' id='s-port' value='" + esc(v.port) + "'>", h.port);
+  html += "</tbody></table><div style='margin-top:12px'><button class='b primary' id='btn-save'>Save settings</button></div>";
+  (s.warnings || []).forEach(w => html += msgHtml("note", w));
+  $("settings").innerHTML = html;
+  $("btn-save").onclick = saveSettings;
+  $("btn-find-blender").onclick = async () => { await api("/api/blender/refresh", {}); await loadSettings(); refresh(); };
+  document.querySelectorAll(".use-blender").forEach(b => b.onclick = () => { $("s-blender_path").value = b.dataset.path; saveSettings(); });
+}
+async function saveSettings() {
+  const g = id => $("s-" + id);
+  const body = {blender_path: g("blender_path").value, device_override: g("device_override").value,
+    vram_gb_override: g("vram_gb_override").value === "" ? null : Number(g("vram_gb_override").value),
+    max_concurrent_jobs: Number(g("max_concurrent_jobs").value), chunk_size: Number(g("chunk_size").value),
+    port: Number(g("port").value), ffmpeg_path: g("ffmpeg_path").value, prevent_sleep: g("prevent_sleep").checked};
+  try {
+    const r = await api("/api/settings", body);
+    await loadSettings();
+    msg($("settings-msg"), "ok", "Saved." + (r.notice ? " " + r.notice : ""));
+    refresh();
+  } catch (e) { msg($("settings-msg"), "err", e.message); }
+}
+
+// ---------------------------------------------------------------- loop
+async function refresh() {
+  try {
+    const o = await api("/api/overview");
+    overview = o;
+    $("topline").textContent = "v" + o.version + " · localhost only · " + o.studio;
+    renderPC(o);
+    renderProjects(o);
+    renderQueue(o.queue);
+    refreshLogs();
+    $("global-msgs").innerHTML = o.scan_error ? msgHtml("err", o.scan_error) : "";
+  } catch (e) {
+    $("global-msgs").innerHTML = msgHtml("err", "Cannot reach RenderHub: " + e.message + ". Is its command window still open?");
+  }
+}
+$("btn-redetect").onclick = async () => { await api("/api/hardware/refresh", {}); refresh(); };
+$("btn-rescan").onclick = async () => { await api("/api/projects/rescan", {}); setTimeout(refresh, 500); };
+window.addEventListener("hashchange", () => showTab(currentTab()));
+showTab(currentTab());
+refresh();
+setInterval(refresh, 2000);
+setInterval(() => { if (currentTab() === "project") refreshDetail(); }, 2000);
+</script>
+</body>
+</html>

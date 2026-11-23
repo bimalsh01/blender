@@ -1,0 +1,22 @@
+# RenderHub data: packages, frames, videos, removed projects (gigabytes, per PC)
+/projects/
+/output/
+/trash/
+/test_packages/
+
+# Per-PC state, caches and logs (rebuilt automatically)
+/state/
+/logs/
+
+# Local settings: RenderHub writes config.json with defaults on first start
+/renderhub/config.json
+
+# Python and OS clutter
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Local Claude Code settings
+.claude/settings.local.json
